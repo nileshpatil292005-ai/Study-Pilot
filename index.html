@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>StudyPilot: Adaptive Practice</title>
+<style>
+:root{--bg:#f4f8f9;--card:#fff;--text:#1b2a32;--muted:#5b7c8d;--accent:#028090;--amber:#f2a541;--good:#0a8f5b;--bad:#c8431f;--track:#dbe8ec;--line:#cfdfe4;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--bg:#0f1b21;--card:#16262e;--text:#e8f1f4;--muted:#9fb7c1;--accent:#3cc3d3;--good:#4fd69c;--bad:#ff8a65;--track:#27404b;--line:#2d4652}}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#0f1b21;--card:#16262e;--text:#e8f1f4;--muted:#9fb7c1;--accent:#3cc3d3;--good:#4fd69c;--bad:#ff8a65;--track:#27404b;--line:#2d4652}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 Calibri,"Segoe UI",Arial,sans-serif}
+.wrap{max-width:980px;margin:0 auto;padding:20px 16px 40px}
+h1{font:700 28px Cambria,Georgia,serif;margin:0}
+.sub{color:var(--muted);margin:2px 0 18px}
+.grid{display:grid;grid-template-columns:1.15fr 1fr;gap:16px}
+@media(max-width:760px){.grid{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px}
+h2{font:700 18px Cambria,Georgia,serif;margin:0 0 10px}
+.tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.tag{font-size:12px;font-weight:700;padding:2px 9px;border-radius:99px;background:var(--track);color:var(--text)}
+.why{font-size:14px;color:var(--muted);margin:0 0 14px}
+.q{font-size:22px;font-weight:600;margin:0 0 14px;min-height:64px}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+input{flex:1;min-width:120px;font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text)}
+button{font:inherit;font-weight:700;padding:10px 18px;border:0;border-radius:8px;background:var(--accent);color:#fff;cursor:pointer}
+button.alt{background:var(--track);color:var(--text)}
+button:disabled{opacity:.5;cursor:default}
+.fb{margin-top:14px;padding:10px 12px;border-radius:8px;display:none;font-size:15px}
+.fb.ok{display:block;border:1px solid var(--good)}.fb.no{display:block;border:1px solid var(--bad)}
+.fb b.ok{color:var(--good)}.fb b.no{color:var(--bad)}
+.t{margin-bottom:12px}.t .n{display:flex;justify-content:space-between;font-size:14px;margin-bottom:3px}
+.bar{height:10px;background:var(--track);border-radius:99px;overflow:hidden}
+.bar i{display:block;height:100%;border-radius:99px;background:var(--accent);transition:width .4s}
+.weak i{background:var(--bad)}.mid i{background:var(--amber)}.strong i{background:var(--good)}
+.small{font-size:13px;color:var(--muted)}
+ul{list-style:none;padding:0;margin:8px 0 0;font-size:14px}
+.score{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:12px}.score b{font:700 34px Cambria,Georgia,serif;color:var(--accent)}
+.hd{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+select{font:inherit;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text)}
+.spark{display:block;margin-top:3px}
+li{padding:3px 0;border-top:1px solid var(--line)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hd"><h1>StudyPilot</h1><button id="theme" class="alt" aria-label="Toggle dark mode">Light / dark</button></div>
+  <p class="sub">Adaptive practice for math and science. It tracks your answers, finds your weakest topic and serves the next problem you need.</p>
+  <div class="grid">
+    <div class="card">
+      <div class="tags" id="tags"></div>
+      <p class="why" id="why"></p>
+      <p class="q" id="q"></p>
+      <div class="row">
+        <input id="ans" type="number" step="any" placeholder="Your answer (a number)" aria-label="Your answer">
+        <button id="check">Check</button>
+      </div>
+      <div class="fb" id="fb"></div>
+      <div class="row" style="margin-top:12px"><button id="hint" class="alt">Hint</button><button id="next" class="alt" disabled>Next problem</button><select id="focus" aria-label="Practice focus"></select></div>
+    </div>
+    <div class="card">
+      <div class="score"><b id="score">0%</b><span>overall readiness</span><span id="focusnext" class="small"></span></div><h2>Your mastery by topic</h2>
+      <div id="dash"></div>
+      <p class="small" id="sess"></p>
+      <ul id="hist"></ul>
+      <div class="row" style="margin-top:12px"><button class="alt" id="reset">Reset progress</button></div>
+    </div>
+  </div>
+  <p class="small" style="margin-top:16px">Mastery is estimated with Bayesian Knowledge Tracing. Weak topics get easier problems first, and difficulty rises as mastery grows. Answers that use a hint do not raise mastery. Progress is saved in this browser only.</p>
+</div>
+<script>
+const r=(a,b)=>Math.floor(Math.random()*(b-a+1))+a, pick=a=>a[r(0,a.length-1)];
+const TOPICS=[
+ {id:'lin',name:'Linear equations',subj:'Math',hint:'Undo the operations in reverse order.',gen:[
+  ()=>{const x=r(1,15),a=r(2,20);return[`Solve for x: x + ${a} = ${x+a}`,x]},
+  ()=>{const k=r(2,9),x=r(1,12);return[`Solve for x: ${k}x = ${k*x}`,x]},
+  ()=>{const k=r(2,9),x=r(1,12),b=r(1,20);return[`Solve for x: ${k}x + ${b} = ${k*x+b}`,x]}]},
+ {id:'pct',name:'Percentages',subj:'Math',hint:'Percent means per hundred: p% of n = n x p / 100.',gen:[
+  ()=>{const p=pick([10,20,25,50]),n=20*r(1,10);return[`What is ${p}% of ${n}?`,n*p/100]},
+  ()=>{const p=pick([10,20,25,50]),n=20*r(1,10);return[`A price of ${n} is increased by ${p}%. What is the new price?`,n*(100+p)/100]},
+  ()=>{const p=pick([10,20,25,50]),n=20*r(1,10);return[`After a ${p}% increase, a price is ${n*(100+p)/100}. What was the original price?`,n]}]},
+ {id:'spd',name:'Speed and motion',subj:'Science',hint:'speed = distance / time, so distance = speed x time.',gen:[
+  ()=>{const s=r(5,20),t=r(2,6);return[`A cyclist covers ${s*t} km in ${t} hours. What is the speed in km/h?`,s]},
+  ()=>{const s=r(20,90),t=r(2,6);return[`A train travels at ${s} km/h for ${t} hours. How far does it go, in km?`,s*t]},
+  ()=>{const q=r(5,25),k=r(1,6);return[`A car covers ${q*k} km in ${15*k} minutes. What is its speed in km/h?`,4*q]}]},
+ {id:'ohm',name:'Electricity (Ohm\'s law)',subj:'Science',hint:'V = I x R. In series, resistances add.',gen:[
+  ()=>{const i=r(1,9),R=r(2,12);return[`A current of ${i} A flows through a ${R} ohm resistor. What is the voltage in V?`,i*R]},
+  ()=>{const i=r(1,9),R=r(2,12);return[`A ${R*i} V battery is connected to a ${R} ohm resistor. What is the current in A?`,i]},
+  ()=>{const i=r(1,6),a=r(2,9),b=r(2,9);return[`Resistors of ${a} ohm and ${b} ohm are in series across ${(a+b)*i} V. What is the current in A?`,i]}]},
+ {id:'area',name:'Area',subj:'Math',hint:'Rectangle: l x w. Triangle: half x base x height.',gen:[
+  ()=>{const l=r(3,15),w=r(2,12);return[`A rectangle is ${l} cm by ${w} cm. What is its area in cm2?`,l*w]},
+  ()=>{const b=2*r(2,10),h=r(2,12);return[`A triangle has base ${b} cm and height ${h} cm. What is its area in cm2?`,b*h/2]},
+  ()=>{const l=r(5,15),w=r(2,l-1);return[`A rectangle has perimeter ${2*(l+w)} cm and length ${l} cm. What is its area in cm2?`,l*w]}]}
+];
+const KEY='studypilot-v1', P={L0:.3,T:.15,S:.1,G:[.3,.2,.1]};
+let S=load(), cur=null, answered=false, hintUsed=false;
+function fresh(){const m={};TOPICS.forEach(t=>m[t.id]={p:P.L0,n:0,c:0});return{m,hist:[],last:null,streak:0}}
+function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.m&&TOPICS.every(t=>s.m[t.id]))return s}catch(e){}return fresh()}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+function update(id,ok,d){const o=S.m[id],G=P.G[d-1];let p=o.p;
+ const post=ok?p*(1-P.S)/(p*(1-P.S)+(1-p)*G):p*P.S/(p*P.S+(1-p)*(1-G));
+ o.p=post+(1-post)*P.T;o.n++;if(ok)o.c++;o.h=(o.h||[]).concat(o.p).slice(-12)}
+function level(p){return p<.4?1:p<.7?2:3}
+function label(p){return p<.4?'weak':p<.7?'mid':'strong'}
+function recommend(){
+ if(S.focus&&S.focus!=='all'){const t=TOPICS.find(x=>x.id===S.focus),p=S.m[t.id].p,d=level(p);return{t,d,why:`You chose to focus on ${t.name} (${Math.round(p*100)}% mastery), so you get a level ${d} problem.`}}
+ const fresh0=TOPICS.filter(t=>S.m[t.id].n===0);
+ if(fresh0.length){const t=fresh0[0];return{t,d:1,why:'Starting check: one quick problem on each topic so I can learn your level.'}}
+ let order=[...TOPICS].sort((a,b)=>S.m[a.id].p-S.m[b.id].p);
+ if(S.last===order[0].id&&S.streak>=3)order.push(order.shift());
+ else if(Math.random()<.2)order=[order[1],order[0],...order.slice(2)];
+ const t=order[0],p=S.m[t.id].p,d=level(p);
+ return{t,d,why:`${t.name} is your ${order[0]===[...TOPICS].sort((a,b)=>S.m[a.id].p-S.m[b.id].p)[0]?'weakest':'next-weakest'} topic (${Math.round(p*100)}% mastery), so you get a level ${d} problem.`}}
+function show(){
+ const rec=recommend(),[q,a]=rec.t.gen[rec.d-1]();
+ cur={t:rec.t,d:rec.d,a};answered=false;hintUsed=false;
+ tags.innerHTML=`<span class="tag">${rec.t.subj}</span><span class="tag">${rec.t.name}</span><span class="tag">Level ${rec.d} of 3</span>`;
+ why.textContent=rec.why;document.getElementById('q').textContent=q;
+ ans.value='';ans.disabled=false;check.disabled=false;next.disabled=true;fb.className='fb';fb.innerHTML='';ans.focus()}
+function submit(){
+ if(answered||ans.value==='')return;answered=true;
+ const ok=Math.abs(parseFloat(ans.value)-cur.a)<.01;
+ if(!(ok&&hintUsed))update(cur.t.id,ok,cur.d);
+ S.streak=S.last===cur.t.id?S.streak+1:1;S.last=cur.t.id;
+ S.hist.unshift({n:cur.t.name,d:cur.d,ok,h:hintUsed});S.hist=S.hist.slice(0,8);save();
+ fb.className='fb '+(ok?'ok':'no');
+ fb.innerHTML=ok?(hintUsed?`<b class="ok">Correct with a hint.</b> Mastery only changes for unaided answers.`:`<b class="ok">Correct.</b> Mastery updated.`):`<b class="no">Not quite.</b> The answer is ${cur.a}. Tip: ${cur.t.hint}`;
+ ans.disabled=true;check.disabled=true;next.disabled=false;next.focus();render()}
+function spark(h){h=h||[];if(h.length<2)return'';const w=120,hh=22,pts=h.map((v,i)=>`${(i/(h.length-1)*w).toFixed(1)},${(hh-v*hh).toFixed(1)}`).join(' ');return`<svg class="spark" width="${w}" height="${hh}" viewBox="0 0 ${w} ${hh}" aria-label="Mastery trend"><polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="1.5"/></svg>`}
+function render(){
+ dash.innerHTML=TOPICS.map(t=>{const o=S.m[t.id],pc=Math.round(o.p*100);
+  return`<div class="t ${label(o.p)}"><div class="n"><span>${t.name}</span><span>${pc}% <span class="small">(${o.c}/${o.n})</span></span></div><div class="bar"><i style="width:${pc}%"></i></div>${spark(o.h)}</div>`}).join('');
+ const tot=TOPICS.reduce((s,t)=>s+S.m[t.id].n,0),cor=TOPICS.reduce((s,t)=>s+S.m[t.id].c,0);
+ {const avg=Math.round(100*TOPICS.reduce((s,t)=>s+S.m[t.id].p,0)/TOPICS.length),w=[...TOPICS].sort((a,b)=>S.m[a.id].p-S.m[b.id].p)[0];$('score').textContent=avg+'%';$('focusnext').textContent=tot?`Focus next: ${w.name}`:''}
+ sess.textContent=tot?`${tot} problems answered, ${cor} correct. Red = weak, amber = developing, green = strong.`:'Answer a few problems to build your profile.';
+ hist.innerHTML=S.hist.map(h=>`<li>${h.ok?'Correct':'Missed'}: ${h.n}, level ${h.d}${h.h?' (hint used)':''}</li>`).join('')}
+const $=id=>document.getElementById(id);
+const tags=$('tags'),why=$('why'),ans=$('ans'),check=$('check'),next=$('next'),fb=$('fb'),dash=$('dash'),sess=$('sess'),hist=$('hist');
+check.onclick=submit;next.onclick=show;
+ans.onkeydown=e=>{if(e.key==='Enter'){answered?(!next.disabled&&show()):submit()}};
+$('reset').onclick=()=>{S=fresh();save();sel.value='all';render();show()};
+const sel=$('focus');sel.innerHTML='<option value="all">Adaptive (all topics)</option>'+TOPICS.map(t=>`<option value="${t.id}">Focus: ${t.name}</option>`).join('');sel.value=S.focus||'all';sel.onchange=()=>{S.focus=sel.value;save();show()};
+$('hint').onclick=()=>{if(!cur||answered)return;hintUsed=true;fb.className='fb ok';fb.innerHTML='Hint: '+cur.t.hint};
+$('theme').onclick=()=>{const d=document.documentElement,dark=d.dataset.theme?d.dataset.theme==='dark':matchMedia('(prefers-color-scheme:dark)').matches;d.dataset.theme=dark?'light':'dark'};
+render();show();
+</script>
+</body>
+</html>
